@@ -158,7 +158,6 @@ app.get("/solutions/del/:id", (req, resu) => {
       .query("SELECT * FROM solutions WHERE ind_s2 = ?;", [req.params.id])
       .then((res) => {
         file = res[0];
-        console.log(file.text);
         const path = STORAGEPATH + "/" + file.text;
 
         fs.unlink(path, (err) => {
