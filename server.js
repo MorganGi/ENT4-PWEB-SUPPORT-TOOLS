@@ -1,13 +1,16 @@
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const multer = require("multer");
 const fs = require("fs");
+const fileUpload = require("express-fileupload");
+const pdfParse = require("pdf-parse");
+const bodyParser = require("body-parser");
+const morgan = require("morgan");
+const _ = require("lodash");
+const path = require("path");
 var corsOptions = {
-  origin: "http://192.168.18.141:8081",
+  origin: "http://localhost:8081",
 };
-
-//RAJOUTER MORGAN
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
   host: "localhost",
@@ -17,20 +20,26 @@ const pool = mariadb.createPool({
 });
 
 app.use(cors(corsOptions));
-
 // parse requests of content-type - application/json
-app.use(express.json());
-
+// app.use(express.json());
 // parse requests of content-type - application/x-www-form-urlencoded
-app.use(express.urlencoded({ extended: true }));
+// app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(morgan("dev"));
+app.use(
+  fileUpload({
+    createParentPath: true,
+  })
+); //ATTENTION REND IMPOSSIBLE D UPLOAD DE FILE
 
 // database
 const db = require("./app/models");
 const Role = db.role;
 
 const dbArbre = require("./app/modelsArbre");
-const { table } = require("console");
-const { equal } = require("assert");
+const { json } = require("body-parser");
+
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
@@ -38,52 +47,64 @@ const Solutions = dbArbre.solutions;
 
 db.sequelize.sync();
 dbArbre.sequelize.sync({ force: false });
-// force: true will drop the table if it already exists
-// db.sequelize.sync({force: true}).then(() => {
-//   console.log('Drop and Resync Database with { force: true }');
-//   initial();
-// });
-
-// simple route
-app.get("/", (req, res) => {
-  res.json({ message: "Welcome to my application." });
-});
-
-// routes
-require("./app/routes/auth.routes")(app);
-require("./app/routes/user.routes")(app);
-
+//FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
-
 const STORAGEPATH = "../react-jwt-auth/react-jwt-auth/public/pdf";
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, STORAGEPATH);
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  },
+
+// routes
+require("./app/routes/auth.routes")(app);
+require("./app/routes/user.routes")(app);
+
+// simple route
+app.get("/", (req, resu) => {
+  // LIRE LES FICHIERS DU DOSSIER
+  resu.send("HOME");
 });
 
-const upload = multer({ storage }).single("file");
+//************************************* */
+app.post("/upload-avatar/:id", async (req, res) => {
+  try {
+    if (!req.files) {
+      res.send({
+        status: false,
+        message: "No file uploaded",
+      });
+    } else {
+      //Use the name of the input field (i.e. "avatar") to retrieve the uploaded file
+      let avatar = req.files.file;
 
-app.post("/upload/pdf/", (req, res) => {
-  upload(req, res, (err) => {
-    if (err) {
-      return res.status(500).json(err);
+      //Use the mv() method to place the file in upload directory (i.e. "uploads")
+      avatar.mv(STORAGEPATH + "/" + avatar.name);
+      Solutions.create({
+        text: avatar.name,
+        ind_s2: req.params.id,
+      });
+      //send response
+      res.status(200).send({
+        status: true,
+        message: "File is uploaded",
+        data: {
+          name: avatar.name,
+          mimetype: avatar.mimetype,
+          size: avatar.size,
+        },
+      });
     }
-    return res.status(200).send(req.file);
-  });
+  } catch (err) {
+    res.status(500).send(err);
+  }
 });
+
+//************************************* */
 
 app.get("/pb/", (req, resu) => {
   Pb.findAll()
     .then((pbs) => {
-      resu.send(JSON.stringify(pbs));
+      resu.status(200).send(JSON.stringify(pbs));
     })
     .catch((err) => {
       res.status(500).send({ message: err.message });
@@ -112,7 +133,7 @@ app.get("/s1/:id", (req, resu) => {
     if (res === null) {
       console.log("Not found!");
     } else {
-      resu.send(JSON.stringify(res));
+      resu.status(200).send(JSON.stringify(res));
     }
   });
 
@@ -193,23 +214,33 @@ app.get("/solutions/del/:id", (req, resu) => {
       .then((res) => {
         file = res[0];
         const path = STORAGEPATH + "/" + file.text;
+        querie =
+          "SELECT COUNT(text) as count FROM solutions WHERE text = '" +
+          file.text +
+          "';";
 
-        fs.unlink(path, (err) => {
-          if (err) {
-            console.error("Erreur de suppression du PDF", err);
-            return;
-          }
-          conn
-            .query("DELETE FROM solutions WHERE text = ?", [file.text])
-            .then((e) => {
-              console.log(e);
-            });
-          resu.send(res);
-          conn.end();
-        }).catch((err) => {
-          console.log(err);
-          conn.end();
-        });
+        conn
+          .query(querie)
+          .then((res) => {
+            if (res[0].count === 1n) {
+              fs.unlink(path, (err) => {
+                if (err) {
+                  console.error("Erreur de suppression du PDF", err);
+                  return;
+                }
+              });
+            }
+            conn
+              .query("DELETE FROM solutions WHERE ind_s2 = ?", [req.params.id])
+              .then((e) => {
+                resu.status(200).send();
+                conn.end();
+              });
+          })
+          .catch((err) => {
+            console.log(err);
+            conn.end();
+          });
       })
       .catch((err) => {
         console.log("Not connected !");
@@ -217,38 +248,38 @@ app.get("/solutions/del/:id", (req, resu) => {
   });
 });
 
-//AJOUT DUN PDF
-app.post("/solutions/:id&:text", (req, resu) => {
-  Solutions.create({
-    text: req.params.text,
-    ind_s2: req.params.id,
-  });
+// //AJOUT DUN PDF
+// app.post("/solutions/:id&:text", (req, resu) => {
+//   Solutions.create({
+//     text: req.params.text,
+//     ind_s2: req.params.id,
+//   });
 
-  // pool
-  //   .getConnection()
-  //   .then((conn) => {
-  //     conn
-  //       .query(
-  //         "INSERT INTO solutions (text, ind_s2) VALUES ('" +
-  //           req.params.text +
-  //           "'," +
-  //           req.params.id +
-  //           ");",
-  //         [req.params.id]
-  //       )
-  //       .then((res) => {
-  //         console.log(res);
-  //         conn.end();
-  //       })
-  //       .catch((err) => {
-  //         console.log(err);
-  //         conn.end();
-  //       });
-  //   })
-  //   .catch((err) => {
-  //     console.log("Not connected !", err);
-  //   });
-});
+// pool
+//   .getConnection()
+//   .then((conn) => {
+//     conn
+//       .query(
+//         "INSERT INTO solutions (text, ind_s2) VALUES ('" +
+//           req.params.text +
+//           "'," +
+//           req.params.id +
+//           ");",
+//         [req.params.id]
+//       )
+//       .then((res) => {
+//         console.log(res);
+//         conn.end();
+//       })
+//       .catch((err) => {
+//         console.log(err);
+//         conn.end();
+//       });
+//   })
+//   .catch((err) => {
+//     console.log("Not connected !", err);
+//   });
+// });
 
 app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
   if (req.params.db === "pb") {
@@ -382,19 +413,46 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
     });
 });
 
-function initial() {
-  Role.create({
-    id: 1,
-    name: "user",
-  });
+// function initial() {
+//   Role.create({
+//     id: 1,
+//     name: "user",
+//   });
 
-  Role.create({
-    id: 2,
-    name: "moderator",
-  });
+//   Role.create({
+//     id: 2,
+//     name: "moderator",
+//   });
 
-  Role.create({
-    id: 3,
-    name: "admin",
+//   Role.create({
+//     id: 3,
+//     name: "admin",
+//   });
+// }
+
+// LIRE LE TEXTE D'UN PDF
+
+app.get("/extract-text", (req, resu) => {
+  const directoryPath = path.join(__dirname, STORAGEPATH);
+  console.log(directoryPath);
+
+  //passsing directoryPath and callback function
+  fs.readdir(directoryPath, function (err, files) {
+    //handling error
+    if (err) {
+      return console.log("Unable to scan directory: " + err);
+    }
+    //listing all files using forEach
+    var tab = [];
+    var monjson;
+    files.forEach((file, i) => {
+      const logo = fs.readFileSync(STORAGEPATH + "/" + file);
+      pdfParse(logo).then((res) => {
+        tab.push(res.text);
+      });
+    });
+    setTimeout(() => {
+      resu.send(tab);
+    }, 500);
   });
-}
+});
