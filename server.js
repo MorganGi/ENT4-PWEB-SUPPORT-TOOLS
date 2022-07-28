@@ -432,9 +432,11 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
 
 // LIRE LE TEXTE D'UN PDF
 
-app.get("/extract-text", (req, resu) => {
+app.get("/extract-text/:searched", (req, resu) => {
+  console.log("SEARCHED : ", req.params.searched);
+
   const directoryPath = path.join(__dirname, STORAGEPATH);
-  console.log(directoryPath);
+  // console.log(directoryPath);
 
   //passsing directoryPath and callback function
   fs.readdir(directoryPath, function (err, files) {
@@ -444,15 +446,21 @@ app.get("/extract-text", (req, resu) => {
     }
     //listing all files using forEach
     var tab = [];
-    var monjson;
+
     files.forEach((file, i) => {
       const logo = fs.readFileSync(STORAGEPATH + "/" + file);
       pdfParse(logo).then((res) => {
-        tab.push(res.text);
+        bool = res.text
+          .toLocaleLowerCase()
+          .includes(req.params.searched.toLocaleLowerCase());
+        if (bool) {
+          tab.push({ text: res.text.slice(0, 300) + "...", titre: file });
+        }
       });
     });
     setTimeout(() => {
-      resu.send(tab);
+      // console.log(JSON.stringify(tab));
+      resu.send(JSON.stringify(tab));
     }, 500);
   });
 });
