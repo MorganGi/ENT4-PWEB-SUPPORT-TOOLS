@@ -386,13 +386,10 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
         conn
           .query(re)
           .then((res) => {
-            console.log("RES:", res);
             conn.end();
             conn.query(re2).then((tab2) => {
-              console.log("tab2:", tab2);
               for (let i = 0; i < tab.length; i++) {
                 const equal = tab2.includes(tab[i].text);
-                console.log(!equal);
                 if (equal) {
                   const path = STORAGEPATH + "/" + tab[i].text;
                   fs.unlink(path, (err) => {
