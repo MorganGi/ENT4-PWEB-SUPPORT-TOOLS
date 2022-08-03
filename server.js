@@ -39,6 +39,8 @@ const Role = db.role;
 
 const dbArbre = require("./app/modelsArbre");
 const { json } = require("body-parser");
+const { condition } = require("sequelize");
+const { stringify } = require("querystring");
 
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
@@ -66,36 +68,70 @@ app.get("/", (req, resu) => {
 });
 
 //************************************* */
-app.post("/upload-avatar/:id", async (req, res) => {
-  try {
-    if (!req.files) {
-      res.send({
-        status: false,
-        message: "No file uploaded",
-      });
-    } else {
-      //Use the name of the input field (i.e. "avatar") to retrieve the uploaded file
-      let avatar = req.files.file;
+app.post("/upload-avatar/:id&:from", async (req, res) => {
+  const from = req.params.from;
+  if (from === "s2") {
+    try {
+      if (!req.files) {
+        res.send({
+          status: false,
+          message: "No file uploaded",
+        });
+      } else {
+        //Use the name of the input field (i.e. "avatar") to retrieve the uploaded file
+        let avatar = req.files.file;
 
-      //Use the mv() method to place the file in upload directory (i.e. "uploads")
-      avatar.mv(STORAGEPATH + "/" + avatar.name);
-      Solutions.create({
-        text: avatar.name,
-        ind_s2: req.params.id,
-      });
-      //send response
-      res.status(200).send({
-        status: true,
-        message: "File is uploaded",
-        data: {
-          name: avatar.name,
-          mimetype: avatar.mimetype,
-          size: avatar.size,
-        },
-      });
+        //Use the mv() method to place the file in upload directory (i.e. "uploads")
+        avatar.mv(STORAGEPATH + "/" + avatar.name);
+        Solutions.create({
+          text: avatar.name,
+          ind_s2: req.params.id,
+        });
+        //send response
+        res.status(200).send({
+          status: true,
+          message: "File is uploaded",
+          data: {
+            name: avatar.name,
+            mimetype: avatar.mimetype,
+            size: avatar.size,
+          },
+        });
+      }
+    } catch (err) {
+      res.status(500).send(err);
     }
-  } catch (err) {
-    res.status(500).send(err);
+  } else {
+    try {
+      if (!req.files) {
+        res.send({
+          status: false,
+          message: "No file uploaded",
+        });
+      } else {
+        //Use the name of the input field (i.e. "avatar") to retrieve the uploaded file
+        let avatar = req.files.file;
+
+        //Use the mv() method to place the file in upload directory (i.e. "uploads")
+        avatar.mv(STORAGEPATH + "/" + avatar.name);
+        Solutions.create({
+          text: avatar.name,
+          ind_s11: req.params.id,
+        });
+        //send response
+        res.status(200).send({
+          status: true,
+          message: "File is uploaded",
+          data: {
+            name: avatar.name,
+            mimetype: avatar.mimetype,
+            size: avatar.size,
+          },
+        });
+      }
+    } catch (err) {
+      res.status(500).send(err);
+    }
   }
 });
 
@@ -206,12 +242,48 @@ app.get("/solutions/:id", (req, resu) => {
       console.log("Not connected !");
     });
 });
+
+app.get("/solutionsbis/:id", (req, resu) => {
+  pool
+    .getConnection()
+    .then((conn) => {
+      conn
+        .query(
+          "SELECT * FROM s1 JOIN solutions ON id_s1 = solutions.ind_s11 WHERE ind_s11 = ?;",
+          [req.params.id]
+        )
+        .then((res) => {
+          resu.send(res);
+          conn.end();
+        })
+        .catch((err) => {
+          console.log(err);
+          conn.end();
+        });
+    })
+    .catch((err) => {
+      console.log("Not connected !");
+    });
+});
+
 //SUPPRIMER UN FICHIER PDF
-app.get("/solutions/del/:id", (req, resu) => {
+app.get("/solutions/del/:id&:from", (req, resu) => {
+  console.log(req.params.from, req.params.id);
+  if (req.params.from === "s1") {
+    console.log("IN");
+    var uri = "SELECT * FROM solutions WHERE ind_s11 = " + req.params.id + ";";
+    var uri2 = "DELETE FROM solutions WHERE ind_s11 = " + req.params.id + ";";
+  } else {
+    console.log("OUT");
+    var uri = "SELECT * FROM solutions WHERE ind_s2 = " + req.params.id + ";";
+    var uri2 = "DELETE FROM solutions WHERE ind_s2 = " + req.params.id + ";";
+  }
+
   pool.getConnection().then((conn) => {
     conn
-      .query("SELECT * FROM solutions WHERE ind_s2 = ?;", [req.params.id])
+      .query(uri)
       .then((res) => {
+        console.log("IN2");
         file = res[0];
         const path = STORAGEPATH + "/" + file.text;
         querie =
@@ -230,12 +302,11 @@ app.get("/solutions/del/:id", (req, resu) => {
                 }
               });
             }
-            conn
-              .query("DELETE FROM solutions WHERE ind_s2 = ?", [req.params.id])
-              .then((e) => {
-                resu.status(200).send();
-                conn.end();
-              });
+            conn.query(uri2).then((e) => {
+              console.log("IN2");
+              resu.status(200).send();
+              conn.end();
+            });
           })
           .catch((err) => {
             console.log(err);
@@ -433,7 +504,7 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
 // LIRE LE TEXTE D'UN PDF
 
 app.get("/extract-text/:searched", (req, resu) => {
-  console.log("SEARCHED : ", req.params.searched);
+  console.log("\n\nSEARCHED : ", req.params.searched);
 
   const directoryPath = path.join(__dirname, STORAGEPATH);
   // console.log(directoryPath);
@@ -450,17 +521,67 @@ app.get("/extract-text/:searched", (req, resu) => {
     files.forEach((file, i) => {
       const logo = fs.readFileSync(STORAGEPATH + "/" + file);
       pdfParse(logo).then((res) => {
-        bool = res.text
-          .toLocaleLowerCase()
-          .includes(req.params.searched.toLocaleLowerCase());
-        if (bool) {
-          tab.push({ text: res.text.slice(0, 300) + "...", titre: file });
+        textLower = res.text.toLocaleLowerCase();
+        textSplited = textLower.split("\n");
+        // console.log("MONSPLIT", textSplited);
+        searchTitle = false;
+        varTitle = "";
+        varTab = [];
+        varTab2 = [];
+        varBool = textLower.includes(req.params.searched.toLocaleLowerCase());
+
+        for (let i = 0; i < textSplited.length; i++) {
+          textparsed = textSplited[i].search(
+            req.params.searched.toLocaleLowerCase()
+          );
+          if (textparsed !== -1) {
+            flag = false;
+            j = i;
+            while (!flag) {
+              varPoint = textSplited[j].search("\\.");
+              if (varPoint !== -1) {
+                // console.log("POINTTROUVER :", varPoint, j);
+                varTab.push(textSplited[j].slice(0, varPoint + 1));
+                flag = !flag;
+              } else {
+                varTab.push(textSplited[j]);
+              }
+              j++;
+            }
+            if (varTab2.length > 10) {
+              break;
+            } else {
+              varTab2[i] = varTab.join(" ");
+              // console.log("TABPSEUDOFINALE:", varTab);
+              varTab = [];
+            }
+          }
+          if (!searchTitle && varTab2.length !== 0) {
+            textparsed = textSplited[i].search("[a-z]");
+            if (textparsed !== -1) {
+              varTitle = textSplited[i];
+              searchTitle = !searchTitle;
+            }
+          }
+        }
+
+        var filtered = varTab2.filter(function (el) {
+          return el != null;
+        });
+        console.log("TAB2:", filtered);
+        final = filtered.join(" AAA ");
+        if (varTab2.length !== 0) {
+          tab.push({
+            text: final,
+            titre: file,
+            titredoc: varTitle,
+          });
         }
       });
     });
     setTimeout(() => {
       // console.log(JSON.stringify(tab));
       resu.send(JSON.stringify(tab));
-    }, 500);
+    }, 250);
   });
 });

@@ -30,6 +30,7 @@ db.solutions = require("./solutions.model.js")(sequelize, Sequelize);
 db.pb.hasMany(db.s1, { foreignKey: "ind_pb" });
 db.s1.hasMany(db.s2, { foreignKey: "ind_s1" });
 db.s2.hasMany(db.solutions, { foreignKey: "ind_s2" });
+db.s1.hasMany(db.solutions, { foreignKey: "ind_s11" });
 
 // db.role.belongsToMany(db.user, {
 //   through: "user_roles",

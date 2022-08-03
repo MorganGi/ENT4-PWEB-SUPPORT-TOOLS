@@ -13,7 +13,11 @@ module.exports = (sequelize, Sequelize) => {
       },
       ind_s2: {
         type: Sequelize.INTEGER,
-        allowNull: false,
+        allowNull: true,
+      },
+      ind_s11: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
       },
     },
     {
