@@ -41,6 +41,7 @@ const dbArbre = require("./app/modelsArbre");
 const { json } = require("body-parser");
 const { condition } = require("sequelize");
 const { stringify } = require("querystring");
+const { connect } = require("http2");
 
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
@@ -70,6 +71,7 @@ app.get("/", (req, resu) => {
 //************************************* */
 app.post("/upload-avatar/:id&:from", async (req, res) => {
   const from = req.params.from;
+  const idupper = req.params.idupper;
   if (from === "s2") {
     try {
       if (!req.files) {
@@ -249,16 +251,30 @@ app.get("/solutionsbis/:id", (req, resu) => {
     .then((conn) => {
       conn
         .query(
-          "SELECT * FROM s1 JOIN solutions ON id_s1 = solutions.ind_s11 WHERE ind_s11 = ?;",
-          [req.params.id]
+          "SELECT COUNT(id_s2) FROM s1 join s2 on id_s1 = s2.ind_s1 where id_s1 = " +
+            req.params.id +
+            ";"
         )
-        .then((res) => {
-          resu.send(res);
-          conn.end();
-        })
-        .catch((err) => {
-          console.log(err);
-          conn.end();
+        .then((diag) => {
+          if (diag[0]["COUNT(id_s2)"] === 0n) {
+            console.log("PASSER");
+            conn
+              .query(
+                "SELECT * FROM s1 JOIN solutions ON id_s1 = solutions.ind_s11 WHERE ind_s11 = ?;",
+                [req.params.id]
+              )
+              .then((res) => {
+                resu.send(res);
+                conn.end();
+              })
+              .catch((err) => {
+                console.log(err);
+                conn.end();
+              });
+          } else {
+            resu.send([]);
+            conn.end();
+          }
         });
     })
     .catch((err) => {
@@ -294,6 +310,7 @@ app.get("/solutions/del/:id&:from", (req, resu) => {
         conn
           .query(querie)
           .then((res) => {
+            console.log("RES : ", res);
             if (res[0].count === 1n) {
               fs.unlink(path, (err) => {
                 if (err) {
@@ -303,7 +320,7 @@ app.get("/solutions/del/:id&:from", (req, resu) => {
               });
             }
             conn.query(uri2).then((e) => {
-              console.log("IN2");
+              console.log("IN2", e);
               resu.status(200).send();
               conn.end();
             });
@@ -457,21 +474,28 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
         conn
           .query(re)
           .then((res) => {
-            conn.end();
-            conn.query(re2).then((tab2) => {
-              for (let i = 0; i < tab.length; i++) {
-                const equal = tab2.includes(tab[i].text);
-                if (equal) {
-                  const path = STORAGEPATH + "/" + tab[i].text;
-                  fs.unlink(path, (err) => {
-                    if (err) {
-                      console.error("Erreur de suppression du PDF", err);
-                      return;
+            conn
+              .query(
+                "DELETE FROM solutions where ind_s2 IS NULL AND ind_s11 IS NULL;"
+              )
+              .then((resi) => {
+                conn.query(re2).then((tab2) => {
+                  conn.end();
+                  values = tab2.map((re) => re.text);
+                  tab.map((item, i) => {
+                    let bool = item.text.includes(values[i]);
+                    if (!bool) {
+                      const path = STORAGEPATH + "/" + item.text;
+                      fs.unlink(path, (err) => {
+                        if (err) {
+                          console.error("Erreur de suppression du PDF", err);
+                          return;
+                        }
+                      });
                     }
                   });
-                }
-              }
-            });
+                });
+              });
           })
           .catch((err) => {
             console.log(err);
