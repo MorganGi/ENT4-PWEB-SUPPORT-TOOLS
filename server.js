@@ -61,13 +61,31 @@ require("./app/routes/user.routes")(app);
 // simple route
 app.get("/", (req, resu) => {
   // LIRE LES FICHIERS DU DOSSIER
+  Role.create({
+    id: 1,
+    name: "user",
+  });
+
+  Role.create({
+    id: 2,
+    name: "admin",
+  });
+
+  Role.create({
+    id: 3,
+    name: "xivo",
+  });
+
+  Role.create({
+    id: 4,
+    name: "cebox",
+  });
   resu.send("HOME");
 });
 
 //************************************* */
 app.post("/upload-avatar/:id&:from", async (req, res) => {
   const from = req.params.from;
-  const idupper = req.params.idupper;
   if (from === "s2") {
     try {
       if (!req.files) {
@@ -135,8 +153,9 @@ app.post("/upload-avatar/:id&:from", async (req, res) => {
 
 //************************************* */
 
-app.get("/pb/", (req, resu) => {
-  Pb.findAll()
+app.get("/pb/:techno", (req, resu) => {
+  //TECHNO
+  Pb.findAll({ where: { techno: req.params.techno } })
     .then((pbs) => {
       resu.status(200).send(JSON.stringify(pbs));
     })
@@ -162,11 +181,16 @@ app.get("/pb/", (req, resu) => {
   //   });
 });
 
-app.get("/searchpb/:findabr", (req, resu) => {
+app.get("/searchpb/:techno/:findabr", (req, resu) => {
+  //TECHNO
   Pb.findAll({
     where: {
+      [Op.and]: [
+        { title_pb: { [Op.substring]: req.params.findabr } },
+        { techno: req.params.techno },
+      ],
       title_pb: {
-        [Op.like]: "%" + req.params.findabr + "%",
+        [Op.substring]: req.params.findabr, //[Op.substring]: 'hat' <=> LIKE '%hat%'
       },
     },
   })
@@ -423,14 +447,17 @@ app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
 });
 
 app.put("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
+  //TECHNO
   if (req.params.db === "pb") {
     re =
       "INSERT INTO " +
       req.params.db +
       " (" +
       req.params.champ +
-      ") VALUES ('" +
+      ", techno) VALUES ('" +
       req.params.newVal +
+      "', '" +
+      req.params.champ2 +
       "');";
   } else {
     re =
@@ -521,28 +548,9 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
     });
 });
 
-// function initial() {
-//   Role.create({
-//     id: 1,
-//     name: "user",
-//   });
-
-//   Role.create({
-//     id: 2,
-//     name: "moderator",
-//   });
-
-//   Role.create({
-//     id: 3,
-//     name: "admin",
-//   });
-// }
-
 // LIRE LE TEXTE D'UN PDF
 
 app.get("/extract-text/:searched", (req, resu) => {
-  console.log("\n\nSEARCHED : ", req.params.searched);
-
   const directoryPath = path.join(__dirname, STORAGEPATH);
   // console.log(directoryPath);
 
@@ -554,7 +562,6 @@ app.get("/extract-text/:searched", (req, resu) => {
     }
     //listing all files using forEach
     var tab = [];
-
     files.forEach((file, i) => {
       const logo = fs.readFileSync(STORAGEPATH + "/" + file);
       pdfParse(logo).then((res) => {
@@ -605,7 +612,6 @@ app.get("/extract-text/:searched", (req, resu) => {
         var filtered = varTab2.filter(function (el) {
           return el != null;
         });
-        console.log("TAB2:", filtered);
         final = filtered.join(" AAA ");
         if (varTab2.length !== 0) {
           tab.push({
@@ -619,6 +625,6 @@ app.get("/extract-text/:searched", (req, resu) => {
     setTimeout(() => {
       // console.log(JSON.stringify(tab));
       resu.send(JSON.stringify(tab));
-    }, 250);
+    }, 50);
   });
 });

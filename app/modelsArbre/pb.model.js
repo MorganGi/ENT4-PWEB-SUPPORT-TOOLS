@@ -10,6 +10,9 @@ module.exports = (sequelize, Sequelize) => {
       title_pb: {
         type: Sequelize.STRING,
       },
+      techno: {
+        type: Sequelize.STRING,
+      },
     },
     {
       timestamps: false,

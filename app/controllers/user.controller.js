@@ -13,3 +13,11 @@ exports.adminBoard = (req, res) => {
 exports.moderatorBoard = (req, res) => {
   res.status(200).send("Moderator Content.");
 };
+
+exports.XivoBoard = (req, res) => {
+  res.status(200).send("Xivo Content.");
+};
+
+exports.CeboxBoard = (req, res) => {
+  res.status(200).send("Cebox Content.");
+};
