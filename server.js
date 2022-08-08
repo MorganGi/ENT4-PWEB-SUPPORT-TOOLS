@@ -8,9 +8,9 @@ const bodyParser = require("body-parser");
 const morgan = require("morgan");
 const _ = require("lodash");
 const path = require("path");
-var corsOptions = {
-  origin: "http://localhost:8081",
-};
+// var corsOptions = {
+//   origin: "http://localhost:8081",
+// };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
   host: "localhost",
@@ -18,8 +18,9 @@ const pool = mariadb.createPool({
   password: "password",
   database: "sq",
 });
-
-app.use(cors(corsOptions));
+const Sequelize = require("sequelize");
+const Op = Sequelize.Op;
+app.use(cors());
 // parse requests of content-type - application/json
 // app.use(express.json());
 // parse requests of content-type - application/x-www-form-urlencoded
@@ -38,17 +39,12 @@ const db = require("./app/models");
 const Role = db.role;
 
 const dbArbre = require("./app/modelsArbre");
-const { json } = require("body-parser");
-const { condition } = require("sequelize");
-const { stringify } = require("querystring");
-const { connect } = require("http2");
-
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
 const Solutions = dbArbre.solutions;
 
-db.sequelize.sync();
+db.sequelize.sync({ force: false });
 dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
@@ -145,7 +141,7 @@ app.get("/pb/", (req, resu) => {
       resu.status(200).send(JSON.stringify(pbs));
     })
     .catch((err) => {
-      res.status(500).send({ message: err.message });
+      err.status(500).send({ message: err.message });
     });
   // pool
   //   .getConnection()
@@ -164,6 +160,22 @@ app.get("/pb/", (req, resu) => {
   //   .catch((err) => {
   //     console.log("Not connected !");
   //   });
+});
+
+app.get("/searchpb/:findabr", (req, resu) => {
+  Pb.findAll({
+    where: {
+      title_pb: {
+        [Op.like]: "%" + req.params.findabr + "%",
+      },
+    },
+  })
+    .then((pbs) => {
+      resu.status(200).send(JSON.stringify(pbs));
+    })
+    .catch((err) => {
+      resu.status(500).send({ message: err.message });
+    });
 });
 
 app.get("/s1/:id", (req, resu) => {
@@ -256,8 +268,8 @@ app.get("/solutionsbis/:id", (req, resu) => {
             ";"
         )
         .then((diag) => {
+          console.log(diag);
           if (diag[0]["COUNT(id_s2)"] === 0n) {
-            console.log("PASSER");
             conn
               .query(
                 "SELECT * FROM s1 JOIN solutions ON id_s1 = solutions.ind_s11 WHERE ind_s11 = ?;",
@@ -272,7 +284,7 @@ app.get("/solutionsbis/:id", (req, resu) => {
                 conn.end();
               });
           } else {
-            resu.send([]);
+            resu.send();
             conn.end();
           }
         });
@@ -484,6 +496,7 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
                   values = tab2.map((re) => re.text);
                   tab.map((item, i) => {
                     let bool = item.text.includes(values[i]);
+
                     if (!bool) {
                       const path = STORAGEPATH + "/" + item.text;
                       fs.unlink(path, (err) => {
