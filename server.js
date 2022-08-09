@@ -60,7 +60,7 @@ require("./app/routes/user.routes")(app);
 
 // simple route
 app.get("/", (req, resu) => {
-  // LIRE LES FICHIERS DU DOSSIER
+  //CREER LES ROLES PAR DÉFAUT
   Role.create({
     id: 1,
     name: "user",
@@ -84,7 +84,7 @@ app.get("/", (req, resu) => {
 });
 
 //************************************* */
-app.post("/upload-avatar/:id&:from", async (req, res) => {
+app.post("/upload-avatar/:techno/:id&:from", async (req, res) => {
   const from = req.params.from;
   if (from === "s2") {
     try {
@@ -102,6 +102,7 @@ app.post("/upload-avatar/:id&:from", async (req, res) => {
         Solutions.create({
           text: avatar.name,
           ind_s2: req.params.id,
+          techno: req.params.techno,
         });
         //send response
         res.status(200).send({
@@ -133,6 +134,7 @@ app.post("/upload-avatar/:id&:from", async (req, res) => {
         Solutions.create({
           text: avatar.name,
           ind_s11: req.params.id,
+          techno: req.params.techno,
         });
         //send response
         res.status(200).send({
@@ -181,6 +183,7 @@ app.get("/pb/:techno", (req, resu) => {
   //   });
 });
 
+// PERMET DE FILTRER LES ELEMENTS DE L'ARBRE
 app.get("/searchpb/:techno/:findabr", (req, resu) => {
   //TECHNO
   Pb.findAll({
@@ -548,83 +551,108 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
     });
 });
 
-// LIRE LE TEXTE D'UN PDF
+// RECHERCHER DU TEXT DANS UN PDF
+app.get("/extract-text/:techno/:searched", (req, resu) => {
+  // RAJOUT TECHNO
+  pool.getConnection().then((conn) => {
+    conn
+      .query(
+        "SELECT text FROM solutions WHERE techno = '" + req.params.techno + "';"
+      )
+      .then((data) => {
+        var listFileByTechno = [];
+        console.log(data);
+        console.log(data.length);
+        for (let k = 0; k < data.length; k++) {
+          listFileByTechno.push(data[k].text);
+        }
+        // RAJOUT TECHNO
 
-app.get("/extract-text/:searched", (req, resu) => {
-  const directoryPath = path.join(__dirname, STORAGEPATH);
-  // console.log(directoryPath);
-
-  //passsing directoryPath and callback function
-  fs.readdir(directoryPath, function (err, files) {
-    //handling error
-    if (err) {
-      return console.log("Unable to scan directory: " + err);
-    }
-    //listing all files using forEach
-    var tab = [];
-    files.forEach((file, i) => {
-      const logo = fs.readFileSync(STORAGEPATH + "/" + file);
-      pdfParse(logo).then((res) => {
-        textLower = res.text.toLocaleLowerCase();
-        textSplited = textLower.split("\n");
-        // console.log("MONSPLIT", textSplited);
-        searchTitle = false;
-        varTitle = "";
-        varTab = [];
-        varTab2 = [];
-        varBool = textLower.includes(req.params.searched.toLocaleLowerCase());
-
-        for (let i = 0; i < textSplited.length; i++) {
-          textparsed = textSplited[i].search(
-            req.params.searched.toLocaleLowerCase()
-          );
-          if (textparsed !== -1) {
-            flag = false;
-            j = i;
-            while (!flag) {
-              varPoint = textSplited[j].search("\\.");
-              if (varPoint !== -1) {
-                // console.log("POINTTROUVER :", varPoint, j);
-                varTab.push(textSplited[j].slice(0, varPoint + 1));
-                flag = !flag;
-              } else {
-                varTab.push(textSplited[j]);
+        const directoryPath = path.join(__dirname, STORAGEPATH);
+        //passsing directoryPath and callback function
+        fs.readdir(directoryPath, function (err, files) {
+          if (err) {
+            return console.log("Unable to scan directory: " + err);
+          }
+          //listing all files using forEach
+          var tab = [];
+          files.forEach((file, i) => {
+            // vérifier que le fichier appartient bien a l'arbre de provenance (XIVO / CEBOX)
+            var bool = false;
+            listFileByTechno.map((item) => {
+              value = file.includes(item);
+              if (value) {
+                bool = true;
               }
-              j++;
-            }
-            if (varTab2.length > 10) {
-              break;
-            } else {
-              varTab2[i] = varTab.join(" ");
-              // console.log("TABPSEUDOFINALE:", varTab);
-              varTab = [];
-            }
-          }
-          if (!searchTitle && varTab2.length !== 0) {
-            textparsed = textSplited[i].search("[a-z]");
-            if (textparsed !== -1) {
-              varTitle = textSplited[i];
-              searchTitle = !searchTitle;
-            }
-          }
-        }
+            });
+            if (bool) {
+              const logo = fs.readFileSync(STORAGEPATH + "/" + file);
+              pdfParse(logo).then((res) => {
+                textLower = res.text.toLocaleLowerCase();
+                textSplited = textLower.split("\n");
+                // console.log("MONSPLIT", textSplited);
+                searchTitle = false;
+                varTitle = "";
+                varTab = [];
+                varTab2 = [];
+                varBool = textLower.includes(
+                  req.params.searched.toLocaleLowerCase()
+                );
 
-        var filtered = varTab2.filter(function (el) {
-          return el != null;
-        });
-        final = filtered.join(" AAA ");
-        if (varTab2.length !== 0) {
-          tab.push({
-            text: final,
-            titre: file,
-            titredoc: varTitle,
+                for (let i = 0; i < textSplited.length; i++) {
+                  textparsed = textSplited[i].search(
+                    req.params.searched.toLocaleLowerCase()
+                  );
+                  if (textparsed !== -1) {
+                    flag = false;
+                    j = i;
+                    while (!flag) {
+                      varPoint = textSplited[j].search("\\.");
+                      if (varPoint !== -1) {
+                        // console.log("POINTTROUVER :", varPoint, j);
+                        varTab.push(textSplited[j].slice(0, varPoint + 1));
+                        flag = !flag;
+                      } else {
+                        varTab.push(textSplited[j]);
+                      }
+                      j++;
+                    }
+                    if (varTab2.length > 10) {
+                      break;
+                    } else {
+                      varTab2[i] = varTab.join(" ");
+                      // console.log("TABPSEUDOFINALE:", varTab);
+                      varTab = [];
+                    }
+                  }
+                  if (!searchTitle && varTab2.length !== 0) {
+                    textparsed = textSplited[i].search("[a-z]");
+                    if (textparsed !== -1) {
+                      varTitle = textSplited[i];
+                      searchTitle = !searchTitle;
+                    }
+                  }
+                }
+
+                var filtered = varTab2.filter(function (el) {
+                  return el != null;
+                });
+                final = filtered.join(" AAA ");
+                if (varTab2.length !== 0) {
+                  tab.push({
+                    text: final,
+                    titre: file,
+                    titredoc: varTitle,
+                  });
+                }
+              });
+            }
           });
-        }
+          setTimeout(() => {
+            // console.log(JSON.stringify(tab));
+            resu.send(JSON.stringify(tab));
+          }, 50);
+        });
       });
-    });
-    setTimeout(() => {
-      // console.log(JSON.stringify(tab));
-      resu.send(JSON.stringify(tab));
-    }, 50);
   });
 });
