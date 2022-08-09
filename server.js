@@ -37,6 +37,7 @@ app.use(
 // database
 const db = require("./app/models");
 const Role = db.role;
+const User = db.users;
 
 const dbArbre = require("./app/modelsArbre");
 const Pb = dbArbre.pb;
@@ -44,7 +45,7 @@ const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
 const Solutions = dbArbre.solutions;
 
-db.sequelize.sync({ force: false });
+db.sequelize.sync({ alter: true });
 dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
@@ -65,21 +66,19 @@ app.get("/", (req, resu) => {
     id: 1,
     name: "user",
   });
-
   Role.create({
     id: 2,
     name: "admin",
   });
-
   Role.create({
     id: 3,
     name: "xivo",
   });
-
   Role.create({
     id: 4,
     name: "cebox",
   });
+
   resu.send("HOME");
 });
 
@@ -375,39 +374,6 @@ app.get("/solutions/del/:id&:from", (req, resu) => {
   });
 });
 
-// //AJOUT DUN PDF
-// app.post("/solutions/:id&:text", (req, resu) => {
-//   Solutions.create({
-//     text: req.params.text,
-//     ind_s2: req.params.id,
-//   });
-
-// pool
-//   .getConnection()
-//   .then((conn) => {
-//     conn
-//       .query(
-//         "INSERT INTO solutions (text, ind_s2) VALUES ('" +
-//           req.params.text +
-//           "'," +
-//           req.params.id +
-//           ");",
-//         [req.params.id]
-//       )
-//       .then((res) => {
-//         console.log(res);
-//         conn.end();
-//       })
-//       .catch((err) => {
-//         console.log(err);
-//         conn.end();
-//       });
-//   })
-//   .catch((err) => {
-//     console.log("Not connected !", err);
-//   });
-// });
-
 app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
   if (req.params.db === "pb") {
     id_db = "id";
@@ -509,6 +475,7 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
   re2 = "SELECT text FROM solutions;";
   global.tab;
   global.tab2;
+  global.bool;
   pool
     .getConnection()
     .then((conn) => {
@@ -525,18 +492,19 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
                   conn.end();
                   values = tab2.map((re) => re.text);
                   tab.map((item, i) => {
-                    let bool = item.text.includes(values[i]);
-
-                    if (!bool) {
-                      const path = STORAGEPATH + "/" + item.text;
-                      fs.unlink(path, (err) => {
-                        if (err) {
-                          console.error("Erreur de suppression du PDF", err);
-                          return;
-                        }
-                      });
+                    if (values[i] !== undefined) {
+                      bool = item.text.includes(values[i]);
                     }
                   });
+                  if (!bool) {
+                    const path = STORAGEPATH + "/" + item.text;
+                    fs.unlink(path, (err) => {
+                      if (err) {
+                        console.error("Erreur de suppression du PDF", err);
+                        return;
+                      }
+                    });
+                  }
                 });
               });
           })
@@ -654,5 +622,15 @@ app.get("/extract-text/:techno/:searched", (req, resu) => {
           }, 50);
         });
       });
+  });
+});
+
+app.get("/roles", (req, resu) => {
+  Role.findAll().then((res) => {
+    if (res === null) {
+      console.log("Not found!");
+    } else {
+      resu.send(JSON.stringify(res));
+    }
   });
 });
