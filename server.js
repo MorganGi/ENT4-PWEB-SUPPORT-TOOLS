@@ -8,9 +8,10 @@ const bodyParser = require("body-parser");
 const morgan = require("morgan");
 const _ = require("lodash");
 const path = require("path");
-// var corsOptions = {
-//   origin: "http://localhost:8081",
-// };
+const axios = require("axios").default;
+var corsOptions = {
+  origin: "http://192.168.18.141:8081",
+};
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
   host: "localhost",
@@ -20,7 +21,7 @@ const pool = mariadb.createPool({
 });
 const Sequelize = require("sequelize");
 const Op = Sequelize.Op;
-app.use(cors());
+app.use(cors(corsOptions));
 // parse requests of content-type - application/json
 // app.use(express.json());
 // parse requests of content-type - application/x-www-form-urlencoded
@@ -38,17 +39,20 @@ app.use(
 const db = require("./app/models");
 const Role = db.role;
 const User = db.users;
+const Start = db.start;
 
 const dbArbre = require("./app/modelsArbre");
+const { where } = require("sequelize");
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
 const Solutions = dbArbre.solutions;
 
-db.sequelize.sync({ alter: true });
+db.sequelize.sync({ force: false });
 dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
@@ -61,25 +65,71 @@ require("./app/routes/user.routes")(app);
 
 // simple route
 app.get("/", (req, resu) => {
-  //CREER LES ROLES PAR DÉFAUT
-  Role.create({
-    id: 1,
-    name: "user",
+  //CREER LES ROLES PAR DÉFAUT , LE COMPTE ADMIN LORS DU PREMIER LANCEMENT
+
+  Role.findOrCreate({
+    where: {
+      id: 1,
+    },
+    defaults: {
+      // set the default properties if it doesn't exist
+      id: 1,
+      name: "user",
+    },
   });
-  Role.create({
-    id: 2,
-    name: "admin",
-  });
-  Role.create({
-    id: 3,
-    name: "xivo",
-  });
-  Role.create({
-    id: 4,
-    name: "cebox",
+  Role.findOrCreate({
+    where: {
+      id: 2,
+    },
+    defaults: {
+      id: 2,
+      name: "admin",
+    },
   });
 
-  resu.send("HOME");
+  Role.findOrCreate({
+    where: {
+      id: 3,
+    },
+    defaults: {
+      id: 3,
+      name: "xivo",
+    },
+  });
+
+  Role.findOrCreate({
+    where: {
+      id: 4,
+    },
+    defaults: {
+      id: 4,
+      name: "cebox",
+    },
+  });
+
+  Start.findOrCreate({
+    where: {
+      id: 1,
+    },
+    defaults: {
+      started: 0,
+    },
+  }).then(() => {
+    Start.findByPk(1).then((res) => {
+      if (res.started !== 1) {
+        axios.post("http://192.168.18.141:8080/api/auth/signup", {
+          username: "admin",
+          email: "admin@admin.com",
+          password: "admin",
+          roles: ["user", "xivo", "cebox", "admin"],
+        });
+        Start.update({ started: 1 }, { where: { id: 1 } });
+        resu.send("Initialised correctly");
+      } else {
+        resu.send("Already started");
+      }
+    });
+  });
 });
 
 //************************************* */
