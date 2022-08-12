@@ -14,7 +14,7 @@ var corsOptions = {
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
-  host: "localhost",
+  host: "192.168.1.93",
   user: "user",
   password: "password",
   database: "sq",
@@ -42,7 +42,7 @@ const User = db.users;
 const Start = db.start;
 
 const dbArbre = require("./app/modelsArbre");
-const { where } = require("sequelize");
+const { values } = require("lodash");
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
@@ -57,8 +57,8 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
-const STORAGEPATH = "../react-jwt-auth/react-jwt-auth/public/pdf";
-
+// const STORAGEPATH = "../react-jwt-auth/react-jwt-auth/public/pdf";
+const STORAGEPATH = "./pdf";
 // routes
 require("./app/routes/auth.routes")(app);
 require("./app/routes/user.routes")(app);
@@ -117,7 +117,7 @@ app.get("/", (req, resu) => {
   }).then(() => {
     Start.findByPk(1).then((res) => {
       if (res.started !== 1) {
-        axios.post("http://192.168.18.141:8080/api/auth/signup", {
+        axios.post("http://192.168.1.94:8080/api/auth/signup", {
           username: "admin",
           email: "admin@admin.com",
           password: "admin",
@@ -540,21 +540,28 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
               .then((resi) => {
                 conn.query(re2).then((tab2) => {
                   conn.end();
-                  values = tab2.map((re) => re.text);
+                  // values = tab2.map((re) => re.text);
+                  // const bool = false;
+                  // tab.map((item, i) => {
+                  //   if (values[i] !== undefined) {
+                  //     bool = item.text.includes(values[i]);
+                  //   }
+                  // });
+                  varValues = tab2.map((re) => re.text);
                   tab.map((item, i) => {
-                    if (values[i] !== undefined) {
-                      bool = item.text.includes(values[i]);
+                    // if (varValues[i] !== undefined) {
+                    bool = varValues.includes(item.text);
+                    if (!bool) {
+                      const path = STORAGEPATH + "/" + item.text;
+                      fs.unlink(path, (err) => {
+                        if (err) {
+                          console.error("Erreur de suppression du PDF", err);
+                          return;
+                        }
+                      });
                     }
+                    // }
                   });
-                  if (!bool) {
-                    const path = STORAGEPATH + "/" + item.text;
-                    fs.unlink(path, (err) => {
-                      if (err) {
-                        console.error("Erreur de suppression du PDF", err);
-                        return;
-                      }
-                    });
-                  }
                 });
               });
           })
