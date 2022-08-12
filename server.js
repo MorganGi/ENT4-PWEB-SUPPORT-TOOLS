@@ -38,7 +38,7 @@ app.use(
 // database
 const db = require("./app/models");
 const Role = db.role;
-const User = db.users;
+const User = db.user;
 const Start = db.start;
 
 const dbArbre = require("./app/modelsArbre");
@@ -48,7 +48,7 @@ const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
 const Solutions = dbArbre.solutions;
 
-db.sequelize.sync({ force: false });
+db.sequelize.sync({ force: true });
 dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
@@ -689,5 +689,42 @@ app.get("/roles", (req, resu) => {
     } else {
       resu.send(JSON.stringify(res));
     }
+  });
+});
+
+app.get("/api/get/users", (req, resu) => {
+  User.findAll({
+    include: [
+      {
+        model: Role,
+        through: {
+          attributes: ["roleId"],
+          // where: { completed: true },
+        },
+      },
+    ],
+  }).then((res) => {
+    if (res) {
+      resu.send(JSON.stringify(res, null, 2));
+    } else {
+      resu.send("No user find");
+    }
+  });
+});
+
+app.post("/api/del/user/:id", (req, resu) => {
+  User.findByPk(req.params.id).then((row) => {
+    res = row.destroy({
+      include: [
+        {
+          model: Role,
+          through: {
+            attributes: ["roleId", "userId"],
+            // where: { completed: true },
+          },
+        },
+      ],
+    });
+    resu.send(res);
   });
 });
