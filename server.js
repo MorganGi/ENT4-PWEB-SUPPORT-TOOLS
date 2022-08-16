@@ -10,7 +10,7 @@ const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
 var corsOptions = {
-  origin: "http://192.168.18.141:8081",
+  origin: "http://192.168.1.91:8081",
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
@@ -48,7 +48,7 @@ const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
 const Solutions = dbArbre.solutions;
 
-db.sequelize.sync({ force: true });
+db.sequelize.sync({ force: false });
 dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
