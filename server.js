@@ -43,6 +43,7 @@ const Start = db.start;
 
 const dbArbre = require("./app/modelsArbre");
 const { values } = require("lodash");
+const { user } = require("./app/models");
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
@@ -65,8 +66,7 @@ require("./app/routes/user.routes")(app);
 
 // simple route
 app.get("/", (req, resu) => {
-  //CREER LES ROLES PAR DÉFAUT , LE COMPTE ADMIN LORS DU PREMIER LANCEMENT
-
+  //CREER LES ROLES PAR DÉFAUT ET LE COMPTE ADMIN LORS DU PREMIER LANCEMENT S'IL N'EXISTENT PAS DÉJÀ
   Role.findOrCreate({
     where: {
       id: 1,
@@ -262,6 +262,26 @@ app.get("/s1/:id", (req, resu) => {
       resu.status(200).send(JSON.stringify(res));
     }
   });
+});
+
+app.get("/searchs1/:id&:findabr", (req, resu) => {
+  S1.findAll({
+    where: {
+      [Op.and]: [
+        { title_s1: { [Op.substring]: req.params.findabr } },
+        { ind_pb: req.params.id },
+      ],
+      title_s1: {
+        [Op.substring]: req.params.findabr, //[Op.substring]: 'hat' <=> LIKE '%hat%'
+      },
+    },
+  })
+    .then((pbs) => {
+      resu.status(200).send(JSON.stringify(pbs));
+    })
+    .catch((err) => {
+      resu.status(500).send({ message: err.message });
+    });
 
   // pool
   //   .getConnection()
@@ -726,5 +746,25 @@ app.post("/api/del/user/:id", (req, resu) => {
       ],
     });
     resu.send(res);
+  });
+});
+
+app.get("/api/get/allroles", (req, resu) => {
+  Role.findAll({ attributes: ["name", "id"] }).then((res) =>
+    resu.send(JSON.stringify(res))
+  );
+});
+
+app.put("/api/update/roles/:id", (req, resu) => {
+  user.findOne({ where: { id: req.params.id } }).then((user) => {
+    console.log(user);
+    user.setRoles(req.body.addroles).then((updated) => {
+      resu.send({
+        id: req.params.id,
+        body: req.body.addroles,
+        users: user,
+        update: updated,
+      });
+    });
   });
 });
