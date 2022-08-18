@@ -10,7 +10,7 @@ const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
 var corsOptions = {
-  origin: "http://10.21.21.1:8081",
+  origin: "http://192.168.1.92:8081",
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
