@@ -10,11 +10,11 @@ const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
 var corsOptions = {
-  origin: "http://192.168.1.91:8081",
+  origin: "http://10.21.21.1:8081",
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
-  host: "192.168.1.93",
+  host: "10.21.21.3",
   user: "user",
   password: "password",
   database: "sq",
@@ -42,7 +42,7 @@ const User = db.user;
 const Start = db.start;
 
 const dbArbre = require("./app/modelsArbre");
-const { values } = require("lodash");
+
 const { user } = require("./app/models");
 const Pb = dbArbre.pb;
 const S1 = dbArbre.s1;
@@ -117,7 +117,7 @@ app.get("/", (req, resu) => {
   }).then(() => {
     Start.findByPk(1).then((res) => {
       if (res.started !== 1) {
-        axios.post("http://192.168.1.94:8080/api/auth/signup", {
+        axios.post("http://10.21.21.2:8080/api/auth/signup", {
           username: "admin",
           email: "admin@admin.com",
           password: "admin",

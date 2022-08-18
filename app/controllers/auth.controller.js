@@ -1,7 +1,9 @@
 const db = require("../models");
 const config = require("../Config/auth.config");
-const User = db.user;
-const Role = db.role;
+// const User = db.user;
+// const Role = db.role;
+//REFRESH TOKEN
+const { user: User, role: Role, refreshToken: RefreshToken } = db;
 const Op = db.Sequelize.Op;
 
 var jwt = require("jsonwebtoken");
@@ -61,11 +63,16 @@ exports.signin = (req, res) => {
           message: "Invalid Password!",
         });
       }
-
-      var token = jwt.sign({ id: user.id }, config.secret, {
-        expiresIn: 86400, // 24 hours
+      // REFRESH TOKEN
+      const token = jwt.sign({ id: user.id }, config.secret, {
+        expiresIn: config.jwtExpiration,
       });
 
+      // var token = jwt.sign({ id: user.id }, config.secret, {
+      //   expiresIn: 86400, // 24 hours
+      // });
+
+      let refreshToken = RefreshToken.createToken(user);
       var authorities = [];
       user.getRoles().then((roles) => {
         for (let i = 0; i < roles.length; i++) {
@@ -77,10 +84,44 @@ exports.signin = (req, res) => {
           email: user.email,
           roles: authorities,
           accessToken: token,
+          refreshToken: refreshToken,
         });
       });
     })
     .catch((err) => {
       res.status(500).send({ message: err.message });
     });
+};
+
+exports.refreshToken = (req, res) => {
+  const { refreshToken: requestToken } = req.body;
+  if (requestToken == null) {
+    return res.status(403).json({ message: "Refresh Token is required!" });
+  }
+  try {
+    let refreshToken = RefreshToken.findOne({ where: { token: requestToken } });
+    console.log(refreshToken);
+    if (!refreshToken) {
+      res.status(403).json({ message: "Refresh token is not in database!" });
+      return;
+    }
+    if (RefreshToken.verifyExpiration(refreshToken)) {
+      RefreshToken.destroy({ where: { id: refreshToken.id } });
+
+      res.status(403).json({
+        message: "Refresh token was expired. Please make a new signin request",
+      });
+      return;
+    }
+    const user = refreshToken.getUser();
+    let newAccessToken = jwt.sign({ id: user.id }, config.secret, {
+      expiresIn: config.jwtExpiration,
+    });
+    return res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: refreshToken.token,
+    });
+  } catch (err) {
+    return res.status(500).send({ message: err });
+  }
 };
