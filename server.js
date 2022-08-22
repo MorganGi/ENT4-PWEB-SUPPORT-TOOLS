@@ -10,11 +10,11 @@ const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
 var corsOptions = {
-  origin: "http://192.168.1.92:8081",
+  origin: `http://192.168.18.141:8081`,
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
-  host: "10.21.21.3",
+  host: "db",
   user: "user",
   password: "password",
   database: "sq",
@@ -394,11 +394,9 @@ app.get("/solutionsbis/:id", (req, resu) => {
 app.get("/solutions/del/:id&:from", (req, resu) => {
   console.log(req.params.from, req.params.id);
   if (req.params.from === "s1") {
-    console.log("IN");
     var uri = "SELECT * FROM solutions WHERE ind_s11 = " + req.params.id + ";";
     var uri2 = "DELETE FROM solutions WHERE ind_s11 = " + req.params.id + ";";
   } else {
-    console.log("OUT");
     var uri = "SELECT * FROM solutions WHERE ind_s2 = " + req.params.id + ";";
     var uri2 = "DELETE FROM solutions WHERE ind_s2 = " + req.params.id + ";";
   }
@@ -407,7 +405,6 @@ app.get("/solutions/del/:id&:from", (req, resu) => {
     conn
       .query(uri)
       .then((res) => {
-        console.log("IN2");
         file = res[0];
         const path = STORAGEPATH + "/" + file.text;
         querie =
@@ -466,7 +463,6 @@ app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
     req.params.id +
     "';";
 
-  console.log("\n", re);
   pool
     .getConnection()
     .then((conn) => {
@@ -485,7 +481,7 @@ app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
     });
 });
 
-app.put("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
+app.post("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
   //TECHNO
   if (req.params.db === "pb") {
     re =
@@ -512,8 +508,6 @@ app.put("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
       req.params.id +
       ");";
   }
-
-  console.log(re);
   pool
     .getConnection()
     .then((conn) => {
@@ -532,7 +526,7 @@ app.put("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
     });
 });
 
-app.put("/delete/:id&:db&:champ", (req, resu) => {
+app.delete("/delete/:id&:db&:champ", (req, resu) => {
   re =
     "DELETE FROM  " +
     req.params.db +
@@ -560,13 +554,6 @@ app.put("/delete/:id&:db&:champ", (req, resu) => {
               .then((resi) => {
                 conn.query(re2).then((tab2) => {
                   conn.end();
-                  // values = tab2.map((re) => re.text);
-                  // const bool = false;
-                  // tab.map((item, i) => {
-                  //   if (values[i] !== undefined) {
-                  //     bool = item.text.includes(values[i]);
-                  //   }
-                  // });
                   varValues = tab2.map((re) => re.text);
                   tab.map((item, i) => {
                     // if (varValues[i] !== undefined) {
@@ -606,8 +593,6 @@ app.get("/extract-text/:techno/:searched", (req, resu) => {
       )
       .then((data) => {
         var listFileByTechno = [];
-        console.log(data);
-        console.log(data.length);
         for (let k = 0; k < data.length; k++) {
           listFileByTechno.push(data[k].text);
         }
@@ -635,7 +620,6 @@ app.get("/extract-text/:techno/:searched", (req, resu) => {
               pdfParse(logo).then((res) => {
                 textLower = res.text.toLocaleLowerCase();
                 textSplited = textLower.split("\n");
-                // console.log("MONSPLIT", textSplited);
                 searchTitle = false;
                 varTitle = "";
                 varTab = [];
@@ -654,7 +638,6 @@ app.get("/extract-text/:techno/:searched", (req, resu) => {
                     while (!flag) {
                       varPoint = textSplited[j].search("\\.");
                       if (varPoint !== -1) {
-                        // console.log("POINTTROUVER :", varPoint, j);
                         varTab.push(textSplited[j].slice(0, varPoint + 1));
                         flag = !flag;
                       } else {
@@ -666,7 +649,6 @@ app.get("/extract-text/:techno/:searched", (req, resu) => {
                       break;
                     } else {
                       varTab2[i] = varTab.join(" ");
-                      // console.log("TABPSEUDOFINALE:", varTab);
                       varTab = [];
                     }
                   }
@@ -756,15 +738,18 @@ app.get("/api/get/allroles", (req, resu) => {
 });
 
 app.put("/api/update/roles/:id", (req, resu) => {
-  user.findOne({ where: { id: req.params.id } }).then((user) => {
-    console.log(user);
-    user.setRoles(req.body.addroles).then((updated) => {
-      resu.send({
-        id: req.params.id,
-        body: req.body.addroles,
-        users: user,
-        update: updated,
+  try {
+    user.findOne({ where: { id: req.params.id } }).then((user) => {
+      user.setRoles(req.body.addroles).then((updated) => {
+        resu.send({
+          id: req.params.id,
+          body: req.body.addroles,
+          users: user,
+          update: updated,
+        });
       });
     });
-  });
+  } catch (error) {
+    console.log("Erreur de modification des roles: \n", error);
+  }
 });
