@@ -9,8 +9,9 @@ const morgan = require("morgan");
 const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
+const IP = "192.168.1.92";
 var corsOptions = {
-  origin: `http://192.168.1.92:8081`,
+  origin: `http://${IP}:8081`,
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
@@ -49,7 +50,7 @@ const S1 = dbArbre.s1;
 const S2 = dbArbre.s2;
 const Solutions = dbArbre.solutions;
 
-db.sequelize.sync({ force: false });
+db.sequelize.sync({ force: true });
 dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
@@ -117,7 +118,8 @@ app.get("/", (req, resu) => {
   }).then(() => {
     Start.findByPk(1).then((res) => {
       if (res.started !== 1) {
-        axios.post("http://10.21.21.2:8080/api/auth/signup", {
+        console.log("CREATION ADMIN");
+        axios.post(`http://${IP}:8080/api/auth/signup`, {
           username: "admin",
           email: "admin@admin.com",
           password: "admin",
