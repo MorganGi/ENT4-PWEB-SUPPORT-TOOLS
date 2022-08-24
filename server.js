@@ -9,9 +9,13 @@ const morgan = require("morgan");
 const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
+
+const SOCKET = "192.168.18.141:3021";
 const IP = "192.168.18.141";
+const VARPORT = "3020";
+
 var corsOptions = {
-  origin: `http://${IP}:8081`,
+  origin: `http://${SOCKET}`,
 };
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
@@ -23,10 +27,7 @@ const pool = mariadb.createPool({
 const Sequelize = require("sequelize");
 const Op = Sequelize.Op;
 app.use(cors(corsOptions));
-// parse requests of content-type - application/json
-// app.use(express.json());
-// parse requests of content-type - application/x-www-form-urlencoded
-// app.use(express.urlencoded({ extended: true }));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan("dev"));
@@ -55,7 +56,7 @@ dbArbre.sequelize.sync({ force: false });
 //FORCE TRUE = CREE UNE NOUVELLE TABLE; FORCE FALSE = TABLE INCHANGÉ ; ALTER = AJOUT DES NOUVELLE CHOSES
 // set port, listen for requests
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || VARPORT;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
@@ -118,7 +119,7 @@ app.get("/", (req, resu) => {
   }).then(() => {
     Start.findByPk(1).then((res) => {
       if (res.started !== 1) {
-        axios.post(`http://${IP}:8080/api/auth/signup`, {
+        axios.post(`http://${IP}:${VARPORT}/api/auth/signup`, {
           username: "admin",
           email: "admin@admin.com",
           password: "admin",
@@ -214,23 +215,6 @@ app.get("/pb/:techno", (req, resu) => {
     .catch((err) => {
       err.status(500).send({ message: err.message });
     });
-  // pool
-  //   .getConnection()
-  //   .then((conn) => {
-  //     conn
-  //       .query("SELECT * FROM pb;")
-  //       .then((res) => {
-  //         resu.send(res);
-  //         conn.end();
-  //       })
-  //       .catch((err) => {
-  //         console.log(err);
-  //         conn.end();
-  //       });
-  //   })
-  //   .catch((err) => {
-  //     console.log("Not connected !");
-  //   });
 });
 
 // PERMET DE FILTRER LES ELEMENTS DE L'ARBRE
@@ -283,24 +267,6 @@ app.get("/searchs1/:id&:findabr", (req, resu) => {
     .catch((err) => {
       resu.status(500).send({ message: err.message });
     });
-
-  // pool
-  //   .getConnection()
-  //   .then((conn) => {
-  //     conn
-  //       .query("SELECT * FROM s1 WHERE ind_pb = ?;", [req.params.id])
-  //       .then((res) => {
-  //         resu.send(res);
-  //         conn.end();
-  //       })
-  //       .catch((err) => {
-  //         console.log(err);
-  //         conn.end();
-  //       });
-  //   })
-  //   .catch((err) => {
-  //     console.log("Not connected !");
-  //   });
 });
 
 app.get("/s2/:id", (req, resu) => {
@@ -311,24 +277,6 @@ app.get("/s2/:id", (req, resu) => {
       resu.send(JSON.stringify(res));
     }
   });
-
-  // pool
-  //   .getConnection()
-  //   .then((conn) => {
-  //     conn
-  //       .query("SELECT * FROM s2 WHERE ind_s1 = ?;", [req.params.id])
-  //       .then((res) => {
-  //         resu.send(res);
-  //         conn.end();
-  //       })
-  //       .catch((err) => {
-  //         console.log(err);
-  //         conn.end();
-  //       });
-  //   })
-  //   .catch((err) => {
-  //     console.log("Not connected !");
-  //   });
 });
 
 app.get("/solutions/:id", (req, resu) => {
