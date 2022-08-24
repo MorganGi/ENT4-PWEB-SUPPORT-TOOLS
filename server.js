@@ -9,7 +9,7 @@ const morgan = require("morgan");
 const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
-const IP = "192.168.1.92";
+const IP = "192.168.18.141";
 var corsOptions = {
   origin: `http://${IP}:8081`,
 };
@@ -118,7 +118,6 @@ app.get("/", (req, resu) => {
   }).then(() => {
     Start.findByPk(1).then((res) => {
       if (res.started !== 1) {
-        console.log("CREATION ADMIN");
         axios.post(`http://${IP}:8080/api/auth/signup`, {
           username: "admin",
           email: "admin@admin.com",
@@ -366,7 +365,6 @@ app.get("/solutionsbis/:id", (req, resu) => {
             ";"
         )
         .then((diag) => {
-          console.log(diag);
           if (diag[0]["COUNT(id_s2)"] === 0n) {
             conn
               .query(
