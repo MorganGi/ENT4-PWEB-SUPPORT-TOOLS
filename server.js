@@ -9,14 +9,27 @@ const morgan = require("morgan");
 const _ = require("lodash");
 const path = require("path");
 const axios = require("axios").default;
-
-const SOCKET = "192.168.18.141:3021";
-const IP = "192.168.18.141";
+//HTTPS
+//const https = require('https');
+//HTTPS
+const SOCKET = "support-tools.avencall.com";
+const IP = "192.168.240.47";
 const VARPORT = "3020";
 
 var corsOptions = {
-  origin: `http://${SOCKET}`,
+  origin: `https://${SOCKET}`,
 };
+
+// HTTPS
+//var key = fs.readFileSync('./ssl/selfsigned.key', 'utf8');
+//var cert = fs.readFileSync('./ssl/selfsigned.crt', 'utf8');
+//var HTTPSoptions = {
+//  key: key,
+//  cert: cert
+//};
+
+// FIN HTTPS
+
 const mariadb = require("mariadb");
 const pool = mariadb.createPool({
   host: "db",
@@ -60,14 +73,22 @@ const PORT = process.env.PORT || VARPORT;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
-// const STORAGEPATH = "../react-jwt-auth/react-jwt-auth/public/pdf";
+
+//HTTPS
+//var server = https.createServer(HTTPSoptions, app);
+
+//server.listen(VARPORT, () => {
+//  console.log("server starting on port : " + VARPORT)
+//});
+//HTTPS
+
 const STORAGEPATH = "./pdf";
 // routes
 require("./app/routes/auth.routes")(app);
 require("./app/routes/user.routes")(app);
 
 // simple route
-app.get("/", (req, resu) => {
+app.get("/api/", (req, resu) => {
   //CREER LES ROLES PAR DÉFAUT ET LE COMPTE ADMIN LORS DU PREMIER LANCEMENT S'IL N'EXISTENT PAS DÉJÀ
   Role.findOrCreate({
     where: {
@@ -119,7 +140,7 @@ app.get("/", (req, resu) => {
   }).then(() => {
     Start.findByPk(1).then((res) => {
       if (res.started !== 1) {
-        axios.post(`http://${IP}:${VARPORT}/api/auth/signup`, {
+        axios.post(`https://support-tools.avencall.com/api/auth/signup`, {
           username: "admin",
           email: "admin@admin.com",
           password: "admin",
@@ -135,7 +156,7 @@ app.get("/", (req, resu) => {
 });
 
 //************************************* */
-app.post("/upload-avatar/:techno/:id&:from", async (req, res) => {
+app.post("/api/upload-avatar/:techno/:id&:from", async (req, res) => {
   const from = req.params.from;
   if (from === "s2") {
     try {
@@ -206,7 +227,7 @@ app.post("/upload-avatar/:techno/:id&:from", async (req, res) => {
 
 //************************************* */
 
-app.get("/pb/:techno", (req, resu) => {
+app.get("/api/pb/:techno", (req, resu) => {
   //TECHNO
   Pb.findAll({ where: { techno: req.params.techno } })
     .then((pbs) => {
@@ -218,7 +239,7 @@ app.get("/pb/:techno", (req, resu) => {
 });
 
 // PERMET DE FILTRER LES ELEMENTS DE L'ARBRE
-app.get("/searchpb/:techno/:findabr", (req, resu) => {
+app.get("/api/searchpb/:techno/:findabr", (req, resu) => {
   //TECHNO
   Pb.findAll({
     where: {
@@ -239,7 +260,7 @@ app.get("/searchpb/:techno/:findabr", (req, resu) => {
     });
 });
 
-app.get("/s1/:id", (req, resu) => {
+app.get("/api/s1/:id", (req, resu) => {
   S1.findAll({ where: { ind_pb: req.params.id } }).then((res) => {
     if (res === null) {
       console.log("Not found!");
@@ -249,7 +270,7 @@ app.get("/s1/:id", (req, resu) => {
   });
 });
 
-app.get("/searchs1/:id&:findabr", (req, resu) => {
+app.get("/api/searchs1/:id&:findabr", (req, resu) => {
   S1.findAll({
     where: {
       [Op.and]: [
@@ -269,7 +290,7 @@ app.get("/searchs1/:id&:findabr", (req, resu) => {
     });
 });
 
-app.get("/s2/:id", (req, resu) => {
+app.get("/api/s2/:id", (req, resu) => {
   S2.findAll({ where: { ind_s1: req.params.id } }).then((res) => {
     if (res === null) {
       console.log("Not found!");
@@ -279,7 +300,7 @@ app.get("/s2/:id", (req, resu) => {
   });
 });
 
-app.get("/solutions/:id", (req, resu) => {
+app.get("/api/solutions/:id", (req, resu) => {
   pool
     .getConnection()
     .then((conn) => {
@@ -302,7 +323,7 @@ app.get("/solutions/:id", (req, resu) => {
     });
 });
 
-app.get("/solutionsbis/:id", (req, resu) => {
+app.get("/api/solutionsbis/:id", (req, resu) => {
   pool
     .getConnection()
     .then((conn) => {
@@ -339,7 +360,7 @@ app.get("/solutionsbis/:id", (req, resu) => {
 });
 
 //SUPPRIMER UN FICHIER PDF
-app.get("/solutions/del/:id&:from", (req, resu) => {
+app.get("/api/solutions/del/:id&:from", (req, resu) => {
   console.log(req.params.from, req.params.id);
   if (req.params.from === "s1") {
     var uri = "SELECT * FROM solutions WHERE ind_s11 = " + req.params.id + ";";
@@ -389,7 +410,7 @@ app.get("/solutions/del/:id&:from", (req, resu) => {
   });
 });
 
-app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
+app.put("/api/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
   if (req.params.db === "pb") {
     id_db = "id";
   } else if (req.params.db === "s1") {
@@ -429,7 +450,7 @@ app.put("/update/:db&:value&:newVal&:id&:champ", (req, resu) => {
     });
 });
 
-app.post("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
+app.post("/api/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
   //TECHNO
   if (req.params.db === "pb") {
     re =
@@ -474,7 +495,7 @@ app.post("/create/:db&:id&:newVal&:champ&:champ2", (req, resu) => {
     });
 });
 
-app.delete("/delete/:id&:db&:champ", (req, resu) => {
+app.delete("/api/delete/:id&:db&:champ", (req, resu) => {
   re =
     "DELETE FROM  " +
     req.params.db +
@@ -532,7 +553,7 @@ app.delete("/delete/:id&:db&:champ", (req, resu) => {
 });
 
 // RECHERCHER DU TEXT DANS UN PDF
-app.get("/extract-text/:techno/:searched", (req, resu) => {
+app.get("/api/extract-text/:techno/:searched", (req, resu) => {
   // RAJOUT TECHNO
   pool.getConnection().then((conn) => {
     conn
@@ -632,7 +653,7 @@ app.get("/extract-text/:techno/:searched", (req, resu) => {
   });
 });
 
-app.get("/roles", (req, resu) => {
+app.get("/api/roles", (req, resu) => {
   Role.findAll().then((res) => {
     if (res === null) {
       console.log("Not found!");
